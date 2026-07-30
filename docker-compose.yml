@@ -1,0 +1,7 @@
+services:
+  nginx:
+    image: docker.arvancloud.ir/nginx:alpine
+    container_name: main_nginx
+    ports:
+      - "80:80"
+    restart: always
