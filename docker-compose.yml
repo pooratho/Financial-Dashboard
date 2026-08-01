@@ -1,7 +1,66 @@
 services:
+  db:
+    image: docker.arvancloud.ir/postgres:16-alpine
+    container_name: db-container
+    restart: always
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U team1_user -d team1_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - my-network
+
+  django:
+    build: ./app
+    container_name: django-container
+    restart: always
+    env_file:
+      - .env
+    expose:
+      - "8000"  # باز کردن پورت 8000 در شبکه داخلی داکر برای ارتباط با Nginx
+    # در صورت نیاز به اجرای Gunicorn می‌توانی خط زیر را از کامنت خارج کنی:
+    # command: gunicorn myproject.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - static-data:/app/static  # مسیر فایل‌های استاتیک جنگو (بسته به تنظیماتت در settings.py)
+      - media-data:/app/media    # مسیر آپلودهای کاربر
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - my-network
+
   nginx:
-    image: docker.arvancloud.ir/nginx:alpine
-    container_name: main_nginx
+    image: docker.arvancloud.ir/nginx:latest
+    container_name: nginx-container
+    restart: always
     ports:
       - "80:80"
-    restart: always
+    volumes:
+      # مپ کردن تنظیمات Nginx
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      # اشتراک‌گذاری فایل‌های استاتیک جنگو با Nginx
+      - static-data:/app/static:ro
+      - media-data:/app/media:ro
+    depends_on:
+      - django
+    networks:
+      - my-network
+
+networks:
+  my-network:
+    driver: bridge
+
+volumes:
+  db-data:
+  static-data:
+  media-data:
