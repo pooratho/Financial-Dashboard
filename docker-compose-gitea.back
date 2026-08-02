@@ -1,0 +1,35 @@
+services:
+  gitea:
+    image: docker.arvancloud.ir/gitea/gitea:latest
+    container_name: gitea
+    ports:
+      - "3000:3000"
+    restart: always
+    environment:
+      - GITEA__database__DB_TYPE=postgres
+      - GITEA__database__HOST=db-container:5432
+      - GITEA__database__NAME=gitea_db
+      - GITEA__database__USER=team1_user
+      - GITEA__database__PASSWD=mysecretpassword
+    volumes:
+      - gitea-server_gitea-data:/data
+    networks:
+      - main-network
+      - team1_my-network
+  nginx:
+    build: ./nginx
+    container_name: nginx
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - gitea
+    networks:
+      - main-network
+networks:
+  main-network:
+  team1_my-network:
+    external: true
+volumes:
+  gitea-server_gitea-data:
+    external: true
