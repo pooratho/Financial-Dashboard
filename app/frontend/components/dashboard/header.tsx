@@ -1,7 +1,9 @@
 'use client'
 
-import { Menu, Plus, Search } from 'lucide-react'
+import { useState } from 'react'
+import { Menu, Plus, Search, User, Mail, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 
 export function Header({
   title,
@@ -16,6 +18,8 @@ export function Header({
   onAddNew: () => void
   onToggleSidebar: () => void
 }) {
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+
   return (
     <header className="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-border bg-background/80 px-4 py-3 backdrop-blur-sm md:px-6">
       <button
@@ -50,15 +54,54 @@ export function Header({
           <span className="sm:hidden">ثبت</span>
         </Button>
 
-        {/* Profile */}
-        <div className="flex items-center gap-2.5 rounded-lg border border-border bg-card py-1 pr-1 pl-3">
-          <div className="flex size-8 items-center justify-center rounded-md bg-accent text-sm font-bold text-accent-foreground">
-            ح
-          </div>
-          <div className="hidden text-right sm:block">
-            <p className="text-xs font-semibold text-foreground leading-tight">کارمند حسابداری</p>
-            <p className="text-[11px] text-muted-foreground leading-tight">accountant@company.ir</p>
-          </div>
+        {/* Profile Section */}
+        <div className="relative">
+          <button
+            onClick={() => setIsProfileOpen(!isProfileOpen)}
+            className={cn(
+              "flex items-center gap-2.5 rounded-lg border border-border bg-card py-1 pr-1 pl-2 transition-all hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              isProfileOpen && "bg-muted ring-2 ring-ring/50"
+            )}
+          >
+            <div className="flex size-8 items-center justify-center rounded-md bg-accent text-sm font-bold text-accent-foreground">
+              ح
+            </div>
+            <div className="hidden text-right sm:block">
+              {/* تغییر متن از سمت به نام کاربر */}
+              <p className="text-xs font-semibold text-foreground leading-tight">حسن سعیدی</p>
+              <p className="text-[11px] text-muted-foreground leading-tight">accountant@company.ir</p>
+            </div>
+            <ChevronDown className={cn("hidden size-4 text-muted-foreground transition-transform sm:block", isProfileOpen && "rotate-180")} />
+          </button>
+
+          {/* Dropdown Menu */}
+          {isProfileOpen && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setIsProfileOpen(false)}
+                aria-hidden="true"
+              />
+              
+              <div className="absolute left-0 top-full z-50 mt-2 w-64 rounded-xl border border-border bg-card p-2 shadow-lg animate-in fade-in slide-in-from-top-2">
+                <div className="mb-2 px-2 pb-2 pt-1 border-b border-border">
+                  <p className="text-sm font-semibold text-foreground">اطلاعات حساب کاربری</p>
+                </div>
+                
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-3 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
+                    <User className="size-4 shrink-0" />
+                    <span className="flex-1 truncate">نام: حسن سعیدی</span>
+                  </div>
+                  {/* بخش سمت (Briefcase) کاملاً حذف شد */}
+                  <div className="flex items-center gap-3 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
+                    <Mail className="size-4 shrink-0" />
+                    <span className="flex-1 truncate" dir="ltr">accountant@company.ir</span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>
