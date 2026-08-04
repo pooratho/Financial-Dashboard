@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import {
   LayoutDashboard,
   ArrowLeftRight,
@@ -7,6 +8,8 @@ import {
   FileBarChart,
   LogOut,
   Wallet,
+  ChevronRight,
+  ChevronLeft
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -30,6 +33,9 @@ export function Sidebar({
   mobileOpen: boolean
   onCloseMobile: () => void
 }) {
+  // تعریف متغیر وضعیت برای باز و بسته بودن نوار کناری در دسکتاپ
+  const [isCollapsed, setIsCollapsed] = useState(false)
+
   return (
     <>
       {/* Mobile overlay */}
@@ -43,19 +49,32 @@ export function Sidebar({
 
       <aside
         className={cn(
-          'fixed inset-y-0 right-0 z-50 flex w-64 flex-col border-l border-sidebar-border bg-sidebar transition-transform duration-300 lg:static lg:translate-x-0',
+          'fixed inset-y-0 right-0 z-50 flex flex-col border-l border-sidebar-border bg-sidebar transition-all duration-300 lg:static lg:translate-x-0 relative',
           mobileOpen ? 'translate-x-0' : 'translate-x-full',
+          // تغییر عرض سایدبار بر اساس وضعیت
+          isCollapsed ? 'w-20' : 'w-64'
         )}
       >
+        {/* دکمه باز و بسته کردن سایدبار (فقط در دسکتاپ نمایش داده می‌شود) */}
+        <button
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="absolute -left-3 top-7 z-50 hidden size-6 items-center justify-center rounded-full border border-sidebar-border bg-background text-muted-foreground shadow-sm transition-colors hover:text-foreground lg:flex"
+        >
+          {isCollapsed ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
+        </button>
+
         {/* Brand */}
-        <div className="flex items-center gap-3 px-5 py-6">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+        <div className={cn("flex items-center py-6 transition-all duration-300", isCollapsed ? "justify-center px-0" : "gap-3 px-5")}>
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <Wallet className="size-5" aria-hidden="true" />
           </div>
-          <div>
-            <p className="text-sm font-bold text-sidebar-foreground">سامانه حسابداری</p>
-            <p className="text-xs text-muted-foreground">مدیریت مالی</p>
-          </div>
+          {/* مخفی کردن متن لوگو در حالت جمع‌شده */}
+          {!isCollapsed && (
+            <div className="overflow-hidden whitespace-nowrap">
+              <p className="text-sm font-bold text-sidebar-foreground">سامانه حسابداری</p>
+              <p className="text-xs text-muted-foreground">مدیریت مالی</p>
+            </div>
+          )}
         </div>
 
         {/* Nav */}
@@ -69,16 +88,19 @@ export function Sidebar({
                   onNavigate(item.key)
                   onCloseMobile()
                 }}
+                title={isCollapsed ? item.label : undefined} // نمایش نام به صورت تولتیپ در حالت جمع‌شده
                 className={cn(
-                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                  'flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                  isCollapsed ? 'justify-center' : 'gap-3',
                   active
                     ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                     : 'text-sidebar-foreground/70 hover:bg-secondary hover:text-sidebar-foreground',
                 )}
                 aria-current={active ? 'page' : undefined}
               >
-                <item.icon className="size-5" aria-hidden="true" />
-                {item.label}
+                <item.icon className="size-5 shrink-0" aria-hidden="true" />
+                {/* مخفی کردن متن منوها در حالت جمع‌شده */}
+                {!isCollapsed && <span className="whitespace-nowrap">{item.label}</span>}
               </button>
             )
           })}
@@ -86,9 +108,15 @@ export function Sidebar({
 
         {/* Logout */}
         <div className="border-t border-sidebar-border p-3">
-          <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-danger-muted hover:text-danger">
-            <LogOut className="size-5" aria-hidden="true" />
-            خروج
+          <button 
+            title={isCollapsed ? "خروج" : undefined}
+            className={cn(
+              "flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-danger-muted hover:text-danger",
+              isCollapsed ? 'justify-center' : 'gap-3'
+            )}
+          >
+            <LogOut className="size-5 shrink-0" aria-hidden="true" />
+            {!isCollapsed && <span className="whitespace-nowrap">خروج</span>}
           </button>
         </div>
       </aside>
