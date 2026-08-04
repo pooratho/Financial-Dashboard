@@ -12,8 +12,7 @@ export const mockCategories: Category[] = [
 ]
 
 /**
- * Deterministic pseudo-random generator (mulberry32) so the generated
- * history is identical on the server and client — avoids hydration mismatches.
+ * Deterministic pseudo-random generator
  */
 function seeded(seed: number) {
   return function () {
@@ -43,18 +42,20 @@ const expenseTemplates: { title: string; category_id: string; type: 'expense' | 
 ]
 
 /**
- * Generates a spread of transactions across June → early August 2026 so the
- * reports page date-range presets (this week / last month / this year) and the
- * temporal trend chart have rich data to render.
+ * Generates transactions using strict UTC dates to avoid SSR Hydration timezone mismatches.
  */
 function generateHistory(): Transaction[] {
   const rnd = seeded(1387)
   const out: Transaction[] = []
-  const start = new Date('2026-06-01')
-  const end = new Date('2026-08-03')
+  
+  // استفاده از UTC برای جلوگیری از اختلاف ساعت سرور و کلاینت
+  const start = new Date(Date.UTC(2026, 5, 1))
+  const end = new Date(Date.UTC(2026, 7, 3))
+  
   let id = 100
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    // ~55% of days have at least one transaction
+  
+  // حلقه بر اساس روزهای UTC
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
     if (rnd() > 0.55) continue
     const count = 1 + Math.floor(rnd() * 2)
     for (let i = 0; i < count; i++) {
@@ -198,5 +199,11 @@ const featuredTransactions: Transaction[] = [
 ]
 
 export const mockTransactions: Transaction[] = [...featuredTransactions, ...generateHistory()].sort(
-  (a, b) => (a.date < b.date ? 1 : -1),
+  (a, b) => {
+    // اصلاح باگ مرتب‌سازی: اگر تاریخ‌ها مساوی بودند، بر اساس آیدی مرتب کن
+    if (a.date === b.date) {
+      return a.id.localeCompare(b.id);
+    }
+    return a.date < b.date ? 1 : -1;
+  }
 )
