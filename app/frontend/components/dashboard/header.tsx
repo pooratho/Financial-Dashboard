@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation' // اضافه شده برای ریدایرکت
 import { Menu, Plus, Search, User, Mail, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -19,6 +20,48 @@ export function Header({
   onToggleSidebar: () => void
 }) {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  // استیت جدید برای نگهداری اطلاعات کاربر
+  const [userProfile, setUserProfile] = useState<any>(null) 
+  const router = useRouter()
+
+  // هوک دریافت اطلاعات کاربر به محض لود شدن هدر
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      const token = localStorage.getItem('accessToken')
+
+      // اگر توکنی نبود، ریدایرکت به صفحه لاگین
+      if (!token) {
+        router.push('/login')
+        return
+      }
+
+      try {
+        const response = await fetch('http://87.248.145.242/finance/profile/me/', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` // ارسال توکن برای تایید هویت
+          },
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          console.log("✅ دیتای پروفایل دریافت شد:", data) // برای چک کردن فیلدها در کنسول
+          setUserProfile(data)
+        } else if (response.status === 401) {
+          // اگر توکن منقضی یا نامعتبر بود
+          console.error("❌ توکن نامعتبر است. بازگشت به لاگین.")
+          localStorage.removeItem('accessToken')
+          localStorage.removeItem('refreshToken')
+          router.push('/login')
+        }
+      } catch (error) {
+        console.error("❌ خطا در ارتباط با سرور:", error)
+      }
+    }
+
+    fetchProfileData()
+  }, [router])
 
   return (
     <header className="sticky top-0 z-30 flex flex-wrap items-center gap-3 border-b border-border bg-background/80 px-4 py-3 backdrop-blur-sm md:px-6">
@@ -63,13 +106,20 @@ export function Header({
               isProfileOpen && "bg-muted ring-2 ring-ring/50"
             )}
           >
-            <div className="flex size-8 items-center justify-center rounded-md bg-accent text-sm font-bold text-accent-foreground">
-              ح
+            {/* نمایش داینامیک حرف اول نام کاربری یا علامت سوال */}
+            <div className="flex size-8 items-center justify-center rounded-md bg-accent text-sm font-bold text-accent-foreground uppercase">
+              {userProfile?.username ? userProfile.username.charAt(0) : '?'}
             </div>
+            
             <div className="hidden text-right sm:block">
-              {/* تغییر متن از سمت به نام کاربر */}
-              <p className="text-xs font-semibold text-foreground leading-tight">حسن سعیدی</p>
-              <p className="text-[11px] text-muted-foreground leading-tight">accountant@company.ir</p>
+              {/* جایگذاری نام کاربری داینامیک */}
+              <p className="text-xs font-semibold text-foreground leading-tight">
+                {userProfile ? userProfile.username : 'درحال بارگذاری...'}
+              </p>
+              {/* جایگذاری ایمیل داینامیک */}
+              <p className="text-[11px] text-muted-foreground leading-tight">
+                {userProfile?.email || 'بدون ایمیل'}
+              </p>
             </div>
             <ChevronDown className={cn("hidden size-4 text-muted-foreground transition-transform sm:block", isProfileOpen && "rotate-180")} />
           </button>
@@ -91,12 +141,15 @@ export function Header({
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-3 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
                     <User className="size-4 shrink-0" />
-                    <span className="flex-1 truncate">نام: حسن سعیدی</span>
+                    <span className="flex-1 truncate">
+                      نام: {userProfile ? userProfile.username : '---'}
+                    </span>
                   </div>
-                  {/* بخش سمت (Briefcase) کاملاً حذف شد */}
                   <div className="flex items-center gap-3 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
                     <Mail className="size-4 shrink-0" />
-                    <span className="flex-1 truncate" dir="ltr">accountant@company.ir</span>
+                    <span className="flex-1 truncate" dir="ltr">
+                      {userProfile?.email || '---'}
+                    </span>
                   </div>
                 </div>
               </div>
