@@ -12,7 +12,7 @@ export function DashboardView({
 }) {
   const recent = [...transactions]
     .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 6)
+    .slice(0, 5) // 👈 تغییر اول: اینجا ۶ به ۵ تبدیل شد
 
   return (
     <div className="flex flex-col gap-6">
@@ -22,7 +22,8 @@ export function DashboardView({
         <div className="rounded-2xl border border-border bg-card shadow-sm xl:col-span-2">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="text-base font-bold text-foreground">تراکنش‌های اخیر</h2>
-            <span className="text-xs text-muted-foreground">۶ مورد آخر</span>
+            {/* 👇 تغییر دوم: متن به ۵ مورد آخر تغییر کرد */}
+            <span className="text-xs text-muted-foreground">۵ مورد آخر</span> 
           </div>
           <TransactionsTable transactions={recent} categories={categories} />
         </div>
