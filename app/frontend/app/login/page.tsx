@@ -3,13 +3,16 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { Eye, EyeOff, Mail } from 'lucide-react' // 👈 آیکون ایمیل هم اضافه شد
 
 export default function LoginPage() {
   const router = useRouter()
 
-  // استیت مربوط به نام کاربری
+  // 👇 استیت جدید برای ایمیل
+  const [email, setEmail] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,7 +23,8 @@ export default function LoginPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: username, // ارسال مستقیم نام کاربری به بک‌اند
+          email: email,       // 👈 ارسال ایمیل (اگر بک‌اند نیاز ندارد این خط را پاک کن)
+          username: username,
           password: password,
         }),
       })
@@ -30,7 +34,6 @@ export default function LoginPage() {
       if (response.ok) {
         console.log("✅ ورود با موفقیت انجام شد! جواب سرور:", data)
         
-        // ذخیره توکن‌ها
         localStorage.setItem('accessToken', data.access)
         localStorage.setItem('refreshToken', data.refresh)
         
@@ -38,7 +41,7 @@ export default function LoginPage() {
         router.push('/')
       } else {
         console.error("❌ سرور اطلاعات را قبول نکرد:", data)
-        alert("نام کاربری یا رمز عبور اشتباه است.")
+        alert("اطلاعات وارد شده اشتباه است.")
       }
     } catch (error) {
       console.error("❌ اتصال به سرور برقرار نشد! دلیل:", error)
@@ -53,12 +56,35 @@ export default function LoginPage() {
             ورود به سامانه
           </h1>
           <p className="text-sm text-muted-foreground">
-            برای ورود به داشبورد، نام کاربری و رمز عبور خود را وارد کنید
+            برای ورود به داشبورد، اطلاعات خود را وارد کنید
           </p>
         </div>
 
         <div className="p-6 pt-0">
           <form onSubmit={handleSubmit} className="space-y-4">
+            
+            {/* 👇 فیلد جدید ایمیل */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium leading-none" htmlFor="email">
+                آدرس ایمیل
+              </label>
+              <div className="relative">
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  dir="ltr"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background py-2 pl-3 pr-10 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-left"
+                  placeholder="name@example.com"
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-muted-foreground">
+                  <Mail className="h-4 w-4" aria-hidden="true" />
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium leading-none" htmlFor="username">
                 نام کاربری
@@ -79,16 +105,30 @@ export default function LoginPage() {
               <label className="text-sm font-medium leading-none" htmlFor="password">
                 رمز عبور
               </label>
-              <input
-                id="password"
-                type="password"
-                required
-                dir="ltr"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-left"
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  required
+                  dir="ltr"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background py-2 pl-3 pr-10 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 text-left"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground focus:outline-none transition-colors"
+                  aria-label={showPassword ? "مخفی کردن رمز عبور" : "نمایش رمز عبور"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" aria-hidden="true" />
+                  ) : (
+                    <Eye className="h-4 w-4" aria-hidden="true" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <Button type="submit" className="w-full mt-4">
