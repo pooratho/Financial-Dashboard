@@ -142,7 +142,7 @@ export function Header({
                   <div className="flex items-center gap-3 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
                     <User className="size-4 shrink-0" />
                     <span className="flex-1 truncate">
-                      نام: {userProfile ? userProfile.username : '---'}
+                      نام کاربری: {userProfile ? userProfile.username : '---'}
                     </span>
                   </div>
                   <div className="flex items-center gap-3 rounded-md px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
