@@ -36,8 +36,7 @@ export function Header({
       }
 
       try {
-        const response = await fetch('http://87.248.145.242/finance/profile/me/', {
-          method: 'GET',
+const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/finance/profile/me/`, {          method: 'GET',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}` // ارسال توکن برای تایید هویت

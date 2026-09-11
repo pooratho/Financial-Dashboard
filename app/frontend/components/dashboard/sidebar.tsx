@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   LayoutDashboard,
   ArrowLeftRight,
@@ -35,6 +36,16 @@ export function Sidebar({
 }) {
   // تعریف متغیر وضعیت برای باز و بسته بودن نوار کناری در دسکتاپ
   const [isCollapsed, setIsCollapsed] = useState(false)
+
+  // هوک روتینگ برای انتقال بین صفحات
+  const router = useRouter()
+
+  // تابع مدیریت خروج
+  const handleLogout = () => {
+    localStorage.removeItem('accessToken')
+    localStorage.removeItem('refreshToken')
+    router.push('/login') // هدایت کاربر به صفحه لاگین
+  }
 
   return (
     <>
@@ -109,6 +120,7 @@ export function Sidebar({
         {/* Logout */}
         <div className="border-t border-sidebar-border p-3">
           <button 
+            onClick={handleLogout}
             title={isCollapsed ? "خروج" : undefined}
             className={cn(
               "flex w-full items-center rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-danger-muted hover:text-danger",

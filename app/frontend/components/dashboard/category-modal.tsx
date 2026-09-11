@@ -24,14 +24,21 @@ export function CategoryModal({
   const [name, setName] = useState('')
   const [type, setType] = useState<CategoryType>('income')
   const [description, setDescription] = useState('')
-  const [error, setError] = useState('')
+  
+  // 👇 تبدیل error استرینگ به آبجکت برای مدیریت خطاهای مختلف
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     if (!open) return
     setName(editing?.name ?? '')
-    setType(editing?.type ?? 'income')
+    
+    // 👇 هماهنگ‌سازی فیلد category_type از بک‌اند با type در فرانت‌اند
+    const initialType = (editing as any)?.category_type?.toLowerCase() || editing?.type || 'income'
+    setType(initialType as CategoryType)
+    
     setDescription(editing?.description ?? '')
-    setError('')
+    setErrors({})
   }, [open, editing])
 
   useEffect(() => {
@@ -45,18 +52,85 @@ export function CategoryModal({
 
   if (!open) return null
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // 👇 تابع به async تبدیل شد تا ریکوئست بفرستد
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const nextErrors: Record<string, string> = {}
+
     if (!name.trim()) {
-      setError('نام دسته‌بندی الزامی است')
+      nextErrors.name = 'نام دسته‌بندی الزامی است'
+      setErrors(nextErrors)
       return
     }
-    onSave({
-      id: editing?.id ?? `c-${Date.now()}`,
-      name: name.trim(),
-      type,
-      description: description.trim() || undefined,
-    })
+
+    setIsSubmitting(true)
+    setErrors({})
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        alert('لطفاً ابتدا وارد حساب کاربری شوید.')
+        setIsSubmitting(false)
+        return
+      }
+
+      // ۱. آماده‌سازی دیتا دقیقاً مطابق با CategorySerializer جنگو
+      const payload = {
+        name: name.trim(),
+        category_type: type.toUpperCase(), // ارسال با حروف بزرگ برای بک‌اند
+        description: description.trim(),
+      }
+
+      // ۲. تشخیص ثبت جدید (POST) یا ویرایش (PUT)
+      const url = editing
+        ? `${process.env.NEXT_PUBLIC_API_URL}/finance/categories/${editing.id}/`
+        : `${process.env.NEXT_PUBLIC_API_URL}/finance/categories/`
+      
+      const method = editing ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      })
+
+      // ۳. دریافت امن جواب سرور (جلوگیری از کرش هنگام خطای ۵۰۰)
+      const responseText = await response.text()
+      let data: any = {}
+      
+      if (responseText) {
+        try {
+          data = JSON.parse(responseText)
+        } catch (err) {
+          console.error("❌ سرور متن نامعتبر فرستاد:", responseText)
+          setErrors({ server: `خطای سرور (${response.status}): جنگو کرش کرد!` })
+          setIsSubmitting(false)
+          return
+        }
+      }
+
+      if (response.ok) {
+        console.log("✅ دسته‌بندی با موفقیت ذخیره شد:", data)
+        onSave(data) // اضافه کردن دیتای تایید شده به لیست در فرانت‌اند
+        onClose() // بستن مودال
+      } else {
+        console.error("❌ خطای ولیدیشن بک‌اند:", data)
+        if (data.name) nextErrors.name = data.name[0]
+        if (data.category_type) nextErrors.server = data.category_type[0]
+        if (!data.name && !data.category_type) nextErrors.server = 'خطا در ثبت اطلاعات.'
+        
+        setErrors(nextErrors)
+      }
+
+    } catch (error) {
+      console.error("❌ خطا در ارتباط با سرور:", error)
+      setErrors({ server: 'ارتباط با سرور قطع شد.' })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -75,6 +149,7 @@ export function CategoryModal({
           </h2>
           <button
             onClick={onClose}
+            disabled={isSubmitting}
             className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             aria-label="بستن"
           >
@@ -84,6 +159,13 @@ export function CategoryModal({
 
         <form onSubmit={handleSubmit}>
           <div className="flex flex-col gap-4 px-6 py-5">
+            {/* نمایش ارورهای سرور */}
+            {errors.server && (
+              <div className="p-3 text-sm text-danger bg-danger-muted rounded-md border border-danger/20">
+                {errors.server}
+              </div>
+            )}
+
             <div>
               <Label htmlFor="c-name" required>
                 نام دسته‌بندی
@@ -93,9 +175,9 @@ export function CategoryModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="مثلاً فروش محصولات"
-                aria-invalid={!!error}
+                aria-invalid={!!errors.name}
               />
-              {error && <p className="mt-1 text-xs text-danger">{error}</p>}
+              {errors.name && <p className="mt-1 text-xs text-danger">{errors.name}</p>}
             </div>
 
             <div>
@@ -127,11 +209,11 @@ export function CategoryModal({
           </div>
 
           <div className="flex items-center justify-end gap-3 border-t border-border bg-secondary/40 px-6 py-4">
-            <Button type="button" variant="outline" size="lg" onClick={onClose}>
+            <Button type="button" variant="outline" size="lg" onClick={onClose} disabled={isSubmitting}>
               انصراف
             </Button>
-            <Button type="submit" size="lg">
-              ذخیره
+            <Button type="submit" size="lg" disabled={isSubmitting}>
+              {isSubmitting ? 'در حال ذخیره...' : 'ذخیره'}
             </Button>
           </div>
         </form>

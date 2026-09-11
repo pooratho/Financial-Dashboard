@@ -11,6 +11,11 @@ import {
 } from '@/lib/accounting'
 import { Label, Select, TextInput, Textarea } from './field'
 
+// 👇 ایمپورت‌های مربوط به تقویم شمسی
+import DatePicker from "react-multi-date-picker"
+import persian from "react-date-object/calendars/persian"
+import persian_fa from "react-date-object/locales/persian_fa"
+
 type FormState = {
   title: string
   transaction_type: TransactionType
@@ -44,17 +49,19 @@ export function TransactionModal({
 }) {
   const [form, setForm] = useState<FormState>(emptyForm(categories))
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  useEffect(() => {
+useEffect(() => {
     if (!open) return
     if (editing) {
+      const editData = editing as any; // 👈 این متغیر جادویی را اضافه کردیم تا گیرهای تایپ‌اسکریپت را دور بزنیم
       setForm({
-        title: editing.title,
-        transaction_type: editing.transaction_type,
-        category_id: editing.category_id,
-        amount: String(editing.amount),
-        date: editing.date,
-        description: editing.description ?? '',
+        title: editData.title,
+        transaction_type: editData.transaction_type,
+        category_id: typeof editData.category === 'object' ? String(editData.category.id) : String(editData.category || editData.category_id),
+        amount: String(editData.amount),
+        date: editData.date,
+        description: editData.descriptions ?? editData.description ?? '',
       })
     } else {
       setForm(emptyForm(categories))
@@ -77,8 +84,9 @@ export function TransactionModal({
   const update = (key: keyof FormState, value: string) =>
     setForm((f) => ({ ...f, [key]: value }))
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
     const nextErrors: Record<string, string> = {}
     if (!form.title.trim()) nextErrors.title = 'عنوان الزامی است'
     const amount = Number(form.amount)
@@ -92,15 +100,82 @@ export function TransactionModal({
       return
     }
 
-    onSave({
-      id: editing?.id ?? `t-${Date.now()}`,
-      title: form.title.trim(),
-      transaction_type: form.transaction_type,
-      category_id: form.category_id,
-      amount,
-      date: form.date,
-      description: form.description.trim() || undefined,
-    })
+    setIsSubmitting(true)
+
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        alert("لطفاً ابتدا وارد حساب کاربری شوید.")
+        return
+      }
+
+      const payload = {
+        title: form.title.trim(),
+        transaction_type: form.transaction_type.toUpperCase(),
+        category: form.category_id, 
+        amount: amount,
+        date: form.date, // اینجا تاریخ فرمت YYYY-MM-DD به بک‌اند ارسال میشه
+        descriptions: form.description.trim() || "", 
+      }
+
+      const url = editing
+        ? `${process.env.NEXT_PUBLIC_API_URL}/finance/transactions/${editing.id}/`
+        : `${process.env.NEXT_PUBLIC_API_URL}/finance/transactions/`
+      
+      const method = editing ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method: method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      })
+
+      const responseText = await response.text()
+      let data: any = {}
+      
+      try {
+        if (responseText) {
+          data = JSON.parse(responseText)
+        }
+      } catch (parseError) {
+        console.error("❌ سرور به جای JSON یک متن نامعتبر فرستاد:", responseText)
+        setErrors({ server: `خطای سرور (${response.status}): جنگو کرش کرد!` })
+        setIsSubmitting(false)
+        return
+      }
+
+      if (response.ok) {
+        console.log("✅ تراکنش با موفقیت ذخیره شد:", data)
+        onSave(data)
+        onClose()
+      } else {
+        console.error("❌ خطای ولیدیشن بک‌اند:", data)
+        let errorMessage = 'اطلاعات وارد شده نامعتبر است. لطفاً بررسی کنید.'
+        if (data && typeof data === 'object') {
+          const allErrors = Object.values(data).flat()
+          if (allErrors.length > 0) {
+            // @ts-ignore
+            errorMessage = allErrors.join(' | ') 
+          }
+        }
+        setErrors({ server: errorMessage })
+      }
+      
+    } catch (error) {
+      console.error("❌ خطا در ارتباط با سرور:", error)
+      setErrors({ server: 'ارتباط با سرور قطع شد.' })
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  // 👇 تبدیل تاریخ میلادی (استیت فرم) به آبجکتِ تقویم برای نمایش اولیه
+  const getCurrentDateObject = () => {
+    if (!form.date) return null
+    return new Date(form.date)
   }
 
   return (
@@ -113,7 +188,6 @@ export function TransactionModal({
         aria-labelledby="modal-title"
         className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-xl"
       >
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-6 py-4">
           <h2 id="modal-title" className="text-base font-bold text-foreground">
             {editing ? 'ویرایش تراکنش' : 'ثبت تراکنش جدید'}
@@ -122,18 +196,23 @@ export function TransactionModal({
             onClick={onClose}
             className="flex size-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             aria-label="بستن"
+            disabled={isSubmitting}
           >
             <X className="size-5" aria-hidden="true" />
           </button>
         </div>
 
-        {/* Body */}
         <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="grid grid-cols-1 gap-4 overflow-y-auto px-6 py-5 md:grid-cols-2">
+            
+            {errors.server && (
+              <div className="md:col-span-2 p-3 text-sm text-danger bg-danger-muted rounded-md border border-danger/20">
+                {errors.server}
+              </div>
+            )}
+
             <div className="md:col-span-2">
-              <Label htmlFor="m-title" required>
-                عنوان
-              </Label>
+              <Label htmlFor="m-title" required>عنوان</Label>
               <TextInput
                 id="m-title"
                 value={form.title}
@@ -145,9 +224,7 @@ export function TransactionModal({
             </div>
 
             <div>
-              <Label htmlFor="m-type" required>
-                نوع تراکنش
-              </Label>
+              <Label htmlFor="m-type" required>نوع تراکنش</Label>
               <Select
                 id="m-type"
                 value={form.transaction_type}
@@ -162,33 +239,23 @@ export function TransactionModal({
             </div>
 
             <div>
-              <Label htmlFor="m-cat" required>
-                دسته‌بندی
-              </Label>
+              <Label htmlFor="m-cat" required>دسته‌بندی</Label>
               <Select
                 id="m-cat"
                 value={form.category_id}
                 onChange={(e) => update('category_id', e.target.value)}
                 aria-invalid={!!errors.category_id}
               >
-                <option value="" disabled>
-                  انتخاب دسته‌بندی
-                </option>
+                <option value="" disabled>انتخاب دسته‌بندی</option>
                 {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
+                  <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </Select>
-              {errors.category_id && (
-                <p className="mt-1 text-xs text-danger">{errors.category_id}</p>
-              )}
+              {errors.category_id && <p className="mt-1 text-xs text-danger">{errors.category_id}</p>}
             </div>
 
             <div>
-              <Label htmlFor="m-amount" required>
-                مبلغ (تومان)
-              </Label>
+              <Label htmlFor="m-amount" required>مبلغ (تومان)</Label>
               <TextInput
                 id="m-amount"
                 type="number"
@@ -203,16 +270,27 @@ export function TransactionModal({
               {errors.amount && <p className="mt-1 text-xs text-danger">{errors.amount}</p>}
             </div>
 
-            <div>
-              <Label htmlFor="m-date" required>
-                تاریخ
-              </Label>
-              <TextInput
-                id="m-date"
-                type="date"
-                value={form.date}
-                onChange={(e) => update('date', e.target.value)}
-                aria-invalid={!!errors.date}
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="m-date" required>تاریخ</Label>
+              {/* 👇 جادوی تقویم شمسی اینجاست */}
+              <DatePicker
+                calendar={persian}
+                locale={persian_fa}
+                value={getCurrentDateObject()}
+                onChange={(dateObject: any) => {
+                  if (dateObject) {
+                    // تبدیل تاریخ شمسی به میلادیِ استاندارد برای ذخیره در استیت و ارسال به سرور
+                    const date = dateObject.toDate()
+                    const y = date.getFullYear()
+                    const m = String(date.getMonth() + 1).padStart(2, '0')
+                    const d = String(date.getDate()).padStart(2, '0')
+                    update('date', `${y}-${m}-${d}`)
+                  } else {
+                    update('date', '')
+                  }
+                }}
+                inputClass={`flex h-10 w-full rounded-xl border bg-background px-3 py-2 text-sm text-foreground ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${errors.date ? 'border-danger' : 'border-input'}`}
+                containerClassName="w-full"
               />
               {errors.date && <p className="mt-1 text-xs text-danger">{errors.date}</p>}
             </div>
@@ -228,13 +306,12 @@ export function TransactionModal({
             </div>
           </div>
 
-          {/* Footer */}
           <div className="flex items-center justify-end gap-3 border-t border-border bg-secondary/40 px-6 py-4">
-            <Button type="button" variant="outline" size="lg" onClick={onClose}>
+            <Button type="button" variant="outline" size="lg" onClick={onClose} disabled={isSubmitting}>
               انصراف
             </Button>
-            <Button type="submit" size="lg">
-              ذخیره
+            <Button type="submit" size="lg" disabled={isSubmitting}>
+              {isSubmitting ? 'در حال ذخیره...' : 'ذخیره'}
             </Button>
           </div>
         </form>

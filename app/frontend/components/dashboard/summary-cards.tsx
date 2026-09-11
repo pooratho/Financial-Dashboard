@@ -6,17 +6,19 @@ import {
   Wallet,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { formatToman, type Transaction } from '@/lib/accounting'
+import { formatToman } from '@/lib/accounting'
 
-function computeTotals(transactions: Transaction[]) {
-  const totals = { income: 0, expense: 0, received: 0, paid: 0 }
-  for (const t of transactions) totals[t.transaction_type] += t.amount
-  const balance = totals.income + totals.received - totals.expense - totals.paid
-  return { ...totals, balance }
-}
+// 👈 تابع computeTotals کاملاً حذف شد چون بک‌اند این محاسبات را انجام می‌دهد
 
-export function SummaryCards({ transactions }: { transactions: Transaction[] }) {
-  const totals = computeTotals(transactions)
+export function SummaryCards({ data }: { data: any }) {
+  // 👈 دیتای آماده را مستقیماً از بک‌اند می‌خوانیم (با پشتیبان صفر برای مقادیر خالی)
+  const totals = {
+    income: data?.summary?.total_income || 0,
+    expense: data?.summary?.total_expense || 0,
+    received: data?.summary?.total_receipt || 0,
+    paid: data?.summary?.total_payment || 0,
+    balance: data?.balances?.cash_flow_balance || 0,
+  }
 
   const cards = [
     {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Category, Transaction } from '@/lib/accounting'
 import { mockCategories, mockTransactions } from '@/lib/mock-data'
 import { Sidebar, type ViewKey } from './sidebar'
@@ -25,8 +25,31 @@ export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions)
-  const [categories, setCategories] = useState<Category[]>(mockCategories)
+const [categories, setCategories] = useState<Category[]>([])
 
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+
+      try {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/finance/categories/`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        if (response.ok) {
+          const data = await response.json()
+          setCategories(data.results || data) // دیتای واقعی بک‌اند
+        }
+      } catch (error) {
+        console.error("❌ خطا در دریافت دسته‌بندی‌ها:", error)
+      }
+    }
+    
+    fetchCategories()
+  }, [])
+  
   const [txModalOpen, setTxModalOpen] = useState(false)
   const [editingTx, setEditingTx] = useState<Transaction | null>(null)
 

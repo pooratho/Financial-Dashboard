@@ -38,8 +38,13 @@ export const positiveTypes: TransactionType[] = ['income', 'received']
 // Types that decrease the balance (shown in red)
 export const negativeTypes: TransactionType[] = ['expense', 'paid']
 
-export function isPositive(type: TransactionType) {
-  return positiveTypes.includes(type)
+export function isPositive(type: string) {
+  if (!type) return false;
+  
+  // تبدیل به حروف کوچک تا بین INCOME و income تفاوتی نباشد
+  const normalizedType = type.toLowerCase() as TransactionType; 
+  
+  return positiveTypes.includes(normalizedType);
 }
 
 /* ---------- Formatting helpers ---------- */

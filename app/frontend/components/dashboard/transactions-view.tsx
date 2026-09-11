@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Filter, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -11,6 +11,11 @@ import {
 } from '@/lib/accounting'
 import { Label, Select, TextInput } from './field'
 import { TransactionsTable } from './transactions-table'
+
+// 👇 ایمپورت‌های مربوط به تقویم شمسی
+import DatePicker from "react-multi-date-picker"
+import persian from "react-date-object/calendars/persian"
+import persian_fa from "react-date-object/locales/persian_fa"
 
 export function TransactionsView({
   transactions,
@@ -30,21 +35,56 @@ export function TransactionsView({
   const [fromDate, setFromDate] = useState('')
   const [toDate, setToDate] = useState('')
 
-  const filtered = useMemo(() => {
-    return transactions
-      .filter((t) => {
-        if (typeFilter !== 'all' && t.transaction_type !== typeFilter) return false
-        if (categoryFilter !== 'all' && t.category_id !== categoryFilter) return false
-        if (fromDate && t.date < fromDate) return false
-        if (toDate && t.date > toDate) return false
-        if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false
-        return true
-      })
-      .sort((a, b) => b.date.localeCompare(a.date))
-  }, [transactions, typeFilter, categoryFilter, fromDate, toDate, search])
+  const [serverData, setServerData] = useState<Transaction[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const hasFilters =
-    typeFilter !== 'all' || categoryFilter !== 'all' || fromDate || toDate
+  useEffect(() => {
+    const fetchFilteredTransactions = async () => {
+      setIsLoading(true)
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+
+      try {
+        const params = new URLSearchParams()
+        
+        if (typeFilter !== 'all') params.append('transaction_type', typeFilter.toUpperCase())
+        if (categoryFilter !== 'all') params.append('category', categoryFilter)
+        if (fromDate) params.append('from_date', fromDate)
+        if (toDate) params.append('to_date', toDate)
+        if (search) params.append('search', search)
+
+        const url = `${process.env.NEXT_PUBLIC_API_URL}/finance/transactions/?${params.toString()}`
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          setServerData(data.results || data)
+        } else {
+          console.error("❌ خطا در دریافت تراکنش‌ها:", await response.text())
+        }
+      } catch (error) {
+        console.error("❌ خطای ارتباط با سرور:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    const delayDebounceFn = setTimeout(() => {
+      fetchFilteredTransactions()
+    }, 300)
+
+    return () => clearTimeout(delayDebounceFn)
+
+  }, [typeFilter, categoryFilter, fromDate, toDate, search, transactions]) 
+
+  const hasFilters = typeFilter !== 'all' || categoryFilter !== 'all' || fromDate || toDate
 
   const resetFilters = () => {
     setTypeFilter('all')
@@ -53,16 +93,37 @@ export function TransactionsView({
     setToDate('')
   }
 
+  // 👇 توابع کمکی برای تبدیل تاریخ بین فرمت میلادی (برای سرور) و آبجکت تقویم (برای نمایش)
+  const getPickerDate = (dateStr: string) => {
+    if (!dateStr) return null
+    return new Date(dateStr)
+  }
+
+  const handleDateChange = (dateObject: any, setter: (val: string) => void) => {
+    if (dateObject) {
+      const date = dateObject.toDate()
+      const y = date.getFullYear()
+      const m = String(date.getMonth() + 1).padStart(2, '0')
+      const d = String(date.getDate()).padStart(2, '0')
+      setter(`${y}-${m}-${d}`)
+    } else {
+      setter('')
+    }
+  }
+
+  // کلاس‌های استاندارد تیلویند برای هماهنگی ظاهر تقویم با بقیه فیلدها
+  const pickerInputClass = "flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
+
   return (
     <div className="flex flex-col gap-4">
-      {/* Filters */}
       <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="mb-3 flex items-center gap-2 text-sm font-medium text-foreground">
           <Filter className="size-4 text-muted-foreground" aria-hidden="true" />
           فیلترها
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
+          
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="f-type">نوع تراکنش</Label>
             <Select
               id="f-type"
@@ -78,7 +139,7 @@ export function TransactionsView({
             </Select>
           </div>
 
-          <div>
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="f-cat">دسته‌بندی</Label>
             <Select
               id="f-cat"
@@ -94,25 +155,34 @@ export function TransactionsView({
             </Select>
           </div>
 
-          <div>
+          {/* 👇 جایگزینی فیلد "از تاریخ" با تقویم شمسی */}
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="f-from">از تاریخ</Label>
-            <TextInput
-              id="f-from"
-              type="date"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
+            <DatePicker
+              calendar={persian}
+              locale={persian_fa}
+              value={getPickerDate(fromDate)}
+              onChange={(date) => handleDateChange(date, setFromDate)}
+              inputClass={pickerInputClass}
+              containerClassName="w-full"
+              placeholder="انتخاب تاریخ..."
             />
           </div>
 
-          <div>
+          {/* 👇 جایگزینی فیلد "تا تاریخ" با تقویم شمسی */}
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="f-to">تا تاریخ</Label>
-            <TextInput
-              id="f-to"
-              type="date"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
+            <DatePicker
+              calendar={persian}
+              locale={persian_fa}
+              value={getPickerDate(toDate)}
+              onChange={(date) => handleDateChange(date, setToDate)}
+              inputClass={pickerInputClass}
+              containerClassName="w-full"
+              placeholder="انتخاب تاریخ..."
             />
           </div>
+          
         </div>
 
         {hasFilters && (
@@ -125,22 +195,28 @@ export function TransactionsView({
         )}
       </div>
 
-      {/* Table */}
       <div className="rounded-2xl border border-border bg-card shadow-sm">
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="text-base font-bold text-foreground">فهرست تراکنش‌ها</h2>
           <span className="text-xs text-muted-foreground">
-            {filtered.length.toLocaleString('fa-IR')} تراکنش
+            {isLoading ? 'در حال جستجو...' : `${serverData.length.toLocaleString('fa-IR')} تراکنش`}
           </span>
         </div>
-        <TransactionsTable
-          transactions={filtered}
-          categories={categories}
-          onEdit={onEdit}
-          onDelete={onDelete}
-          showActions
-          showDescription
-        />
+        
+        {isLoading && serverData.length === 0 ? (
+          <div className="flex h-40 items-center justify-center text-muted-foreground">
+            در حال بارگذاری اطلاعات از سرور...
+          </div>
+        ) : (
+          <TransactionsTable
+            transactions={serverData}
+            categories={categories}
+            onEdit={onEdit}
+            onDelete={onDelete}
+            showActions
+            showDescription
+          />
+        )}
       </div>
     </div>
   )

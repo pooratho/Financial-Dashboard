@@ -9,9 +9,13 @@ const iconMap = {
   paid: ArrowUpRight,
 } as const
 
-export function TypePill({ type }: { type: TransactionType }) {
-  const Icon = iconMap[type]
-  const positive = isPositive(type)
+// 👈 تایپ string رو هم اضافه کردیم تا دیتای خام بک‌اند رو قبول کنه
+export function TypePill({ type }: { type: TransactionType | string }) {
+  // 🌟 جادوی اصلی: یکسان‌سازی حروف برای جلوگیری از undefined شدن آیکون
+  const normalizedType = String(type).toLowerCase() as TransactionType
+  
+  const Icon = iconMap[normalizedType]
+  const positive = isPositive(normalizedType)
 
   return (
     <span
@@ -22,8 +26,9 @@ export function TypePill({ type }: { type: TransactionType }) {
           : 'bg-danger-muted text-danger',
       )}
     >
-      <Icon className="size-3.5" aria-hidden="true" />
-      {transactionTypeLabels[type]}
+      {/* 👈 یک چک امنیتی اضافه کردیم تا اگر به هر دلیلی آیکون پیدا نشد، اپلیکیشن کرش نکند */}
+      {Icon && <Icon className="size-3.5" aria-hidden="true" />}
+      {transactionTypeLabels[normalizedType] || normalizedType}
     </span>
   )
 }
